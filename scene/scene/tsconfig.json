@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "amd",
+    "moduleResolution": "Node",
+    "pretty": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "downlevelIteration": true,
+    "keyofStringsOnly": true,
+    "noLib": true,
+    "allowJs": true,
+    "outFile": "../bin/raw.js",
+    "types": [
+      "env",
+      "dcl",
+      "@decentraland/ChatController",
+      "@decentraland/EthereumController",
+      "@decentraland/SocialController",
+      "@decentraland/Identity",
+      "@decentraland/web3-provider"
+    ],
+    "typeRoots": [
+      "../node_modules/decentraland-ecs/types"
+    ]
+  },
+  "include": ["game.ts"] 
+}

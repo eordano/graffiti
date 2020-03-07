@@ -1,51 +1,26 @@
-/// --- Set up a system ---
+//Create entity and assign shape
+const myEntity = new Entity()
+myEntity.addComponent(new BoxShape())
 
-class RotatorSystem {
-  // this group will contain every entity that has a Transform component
-  group = engine.getComponentGroup(Transform)
+//Create material and configure its fields
+const myMaterial = new Material()
+myMaterial.albedoColor = Color3.Blue()
+myMaterial.metallic = 0.9
+myMaterial.roughness = 1
 
-  update(dt: number) {
-    // iterate over the entities of the group
-    for (let entity of this.group.entities) {
-      // get the Transform component of the entity
-      const transform = entity.getComponent(Transform)
+//Assign the material to the entity
+myEntity.addComponent(myMaterial)
 
-      // mutate the rotation
-      transform.rotate(Vector3.Up(), dt * 10)
-    }
-  }
-}
+// Create and add a `Transform` component to that entity
+myEntity.addComponent(new Transform())
 
-// Add a new instance of the system to the engine
-engine.addSystem(new RotatorSystem())
+// Set the fields in the component
+myEntity.getComponent(Transform).position.set(3, 1, 3)
 
-/// --- Spawner function ---
+// Add the entity to the engine
+engine.addEntity(myEntity)
 
-function spawnCube(x: number, y: number, z: number) {
-  // create the entity
-  const cube = new Entity()
+declare var console: any
+declare var dcl: any
+console.log(engine)
 
-  // add a transform to the entity
-  cube.addComponent(new Transform({ position: new Vector3(x, y, z) }))
-
-  // add a shape to the entity
-  cube.addComponent(new BoxShape())
-
-  // add the entity to the engine
-  engine.addEntity(cube)
-
-  return cube
-}
-
-/// --- Spawn a cube ---
-
-const cube = spawnCube(8, 1, 8)
-
-cube.addComponent(
-  new OnClick(() => {
-    cube.getComponent(Transform).scale.z *= 1.1
-    cube.getComponent(Transform).scale.x *= 0.9
-
-    spawnCube(Math.random() * 8 + 1, Math.random() * 8, Math.random() * 8 + 1)
-  })
-)
