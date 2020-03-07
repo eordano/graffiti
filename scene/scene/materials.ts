@@ -7,11 +7,11 @@ export const c = {
 }
 
 export const Colors = {
-  red: setupMaterial(1, 0, 0),
-  green: setupMaterial(0, 1, 0),
-  blue: setupMaterial(0, 0, 1),
+  _: setupMaterial(1, 1, 1),
+  r: setupMaterial(1, 0, 0),
+  g: setupMaterial(0, 1, 0),
+  b: setupMaterial(0, 0, 1),
 }
-
 
 export function setupMaterial(red: number, green: number, blue: number) {
   const MaterialClassId = 65

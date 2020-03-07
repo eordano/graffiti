@@ -41,7 +41,8 @@ export function initializeServer(
         throw new Error(`Invalid request for snapshot: ${JSON.stringify(data)}`)
       }
       if (!state[parcel]) {
-        throw new Error(`No data for ${parcel}`)
+        console.log(`No data for ${parcel}`)
+        state[data.parcel] = { rows: DEFAULT_ROWS, cols: DEFAULT_COLS, data: {} }
       }
       ws.send(JSON.stringify({ type: 'snapshot', data: JSON.stringify(serializeGrid(state[parcel])) }))
     }
@@ -66,7 +67,7 @@ export function initializeServer(
         color: data.color
       }
       wss.clients.forEach(_ => {
-        _.send(JSON.stringify({ type: 'delta', data }))
+        _.send(JSON.stringify({ type: 'delta', data: state[data.parcel].data[data.position] }))
       })
     }
   })

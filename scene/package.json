@@ -12,5 +12,11 @@
   },
   "devDependencies": {
     "decentraland-ecs": "latest"
+  },
+  "prettier": {
+    "semi": false,
+    "tabWidth": 2,
+    "printWidth": 120,
+    "singleQuote": true
   }
 }
