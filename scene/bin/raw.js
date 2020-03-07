@@ -130,11 +130,13 @@ define("game", ["require", "exports", "microlib", "tiles", "materials"], functio
     materials_2.setupMaterial(0, 1, 0);
     materials_2.setupMaterial(0, 0, 1);
     microlib_2.spawnModel('models/model.glb', { x: 8, y: 0, z: 8 });
+    var DEFAULT_ROWS = 8;
+    var DEFAULT_COLS = 32;
     setTimeout(function () {
         var tiles = {};
-        for (var i = 0; i < 32; i++) {
+        for (var i = 0; i < DEFAULT_COLS; i++) {
             tiles[i] = {};
-            for (var j = 0; j < 8; j++) {
+            for (var j = 0; j < DEFAULT_ROWS; j++) {
                 tiles[i][j] = tiles_1.createTile(i, j);
             }
         }

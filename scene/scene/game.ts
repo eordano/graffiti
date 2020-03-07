@@ -10,13 +10,15 @@ setupMaterial(0,0,1)
 
 spawnModel('models/model.glb', { x: 8, y: 0, z: 8 })
 
+const DEFAULT_ROWS = 8
+const DEFAULT_COLS = 32
 declare var setTimeout: any
 setTimeout(() => {
   const tiles: Record<Row,Record<Col, Tile>> = {}
   
-  for (let i = 0; i < 32; i++) {
+  for (let i = 0; i < DEFAULT_COLS; i++) {
     tiles[i] = {}
-    for (let j = 0; j < 8; j++) {
+    for (let j = 0; j < DEFAULT_ROWS; j++) {
       tiles[i][j] = createTile(i, j)
     }
   }
