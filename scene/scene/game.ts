@@ -18,7 +18,7 @@ const updateFunctions = {
   }
 }
 
-spawnModel('models/model.glb', { x: 8, y: 0, z: 8 })
+spawnModel('models/model.glb', { x: 8, y: 0, z: 8 }, 90)
 ;(async function() {
   const a = await dcl.callRpc('EnvironmentAPI', 'getBootstrapData')
   const parcel = `${a.data.basePosition.x},${a.data.basePosition.y}`
@@ -82,9 +82,10 @@ function setupGrid() {
   const tiles: Record<Row, Record<Col, Tile>> = {}
 
   const data = Object.keys(state.data)
+  const newTiles = []
   for (let coordinate of data) {
     const value = data[coordinate]
-    const [col, row] = parseCoordinates(coordinate)
+    const [row, col] = parseCoordinates(coordinate)
     if (!tiles[row]) {
       tiles[row] = {}
     }
@@ -92,7 +93,7 @@ function setupGrid() {
       tiles[row][col] = createTile({
         row,
         col,
-        color: state.data[`${row},${col}`].color,
+        color: state.data[coordinate].color,
         onClick: (_row: number, _col: number) => {
           dcl.log('changing', _row, _col)
           try {
@@ -106,8 +107,19 @@ function setupGrid() {
           }
         }
       })
+      newTiles.push(tiles[row][col])
     } else {
       updateFunctions.renderer({ row, col, color: COLOR_TO_CHAR[value.color] })
     }
+  }
+  for (let tile of newTiles) {
+    dcl.componentUpdated(
+      tile.componentId,
+      JSON.stringify({
+        withCollisions: true,
+        isPointerBlocker: true,
+        visible: true
+      })
+    )
   }
 }

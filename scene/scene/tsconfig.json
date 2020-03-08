@@ -12,7 +12,7 @@
     "keyofStringsOnly": true,
     "noLib": true,
     "allowJs": true,
-    "outFile": "../bin/game.js",
+    "outFile": "../bin/raw.js",
     "types": [
       "env",
       "dcl",

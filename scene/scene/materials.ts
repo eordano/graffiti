@@ -5,21 +5,28 @@ export const c = {
 }
 
 export const Colors = {
-  _: setupMaterial(231 / 256, 231 / 256, 231 / 256),
-  r: setupMaterial(241 / 256, 93 / 256, 172 / 256),
-  g: setupMaterial(134 / 256, 233 / 256, 225 / 256),
-  b: setupMaterial(72 / 256, 54 / 256, 78 / 256)
+  _: setupMaterial(1, 1, 1, 0.75),
+  r: setupMaterial(241 / 256, 93 / 256, 172 / 256, 0.9),
+  g: setupMaterial(255 / 256, 203 / 256, 76 / 256, 0.92),
+  b: setupMaterial(100 / 256, 170 / 256, 221 / 256, 0.8)
 }
 export function setupDefaultMaterials() {
   for (let i of Object.keys(Colors)) {
     dcl.log(`Color ${i} set up to id ${Colors[i]}`)
   }
 }
+export function getMaterial(key: string) {
+  if (!Colors[key]) {
+    return Colors['_']
+  }
+  return Colors[key]
+}
 
-export function setupMaterial(red: number, green: number, blue: number) {
+export function setupMaterial(red: number, green: number, blue: number, alpha: number) {
   const MaterialClassId = 65
   const materialId = 'M' + c.current.toString(16)
   c.current++
+  dcl.log('material created' + materialId)
   dcl.componentCreated(materialId, 'engine.material', MaterialClassId)
   dcl.componentUpdated(
     materialId,
@@ -29,10 +36,10 @@ export function setupMaterial(red: number, green: number, blue: number) {
         r: red,
         g: green,
         b: blue,
-        a: 0.75
+        a: alpha
       },
-      metallic: 0.9,
-      roughness: 1,
+      metallic: 0.95,
+      roughness: 0.95,
       transparencyMode: 4
     })
   )
