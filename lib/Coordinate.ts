@@ -1,1 +1,1 @@
-export type Coordinate = string;
+export type Coordinate = string
