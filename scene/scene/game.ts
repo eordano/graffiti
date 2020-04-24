@@ -8,8 +8,30 @@ import { Col, createTile, Row, Tile } from './tiles'
 
 start()
 declare var setTimeout: any
+declare var setInterval: any
+declare var clearTimeout: any
+declare var clearInterval: any
 
-const URL = 'ws://localhost:1337/'
+const connectionState: {
+  currentSocket: WebSocket
+  horizontal: boolean
+  backoff: number
+  reconnectTimeout: number
+  pingInterval: number
+  parcel: string
+  coordinates: { x: number; y: number }
+  tiles: Record<Row, Record<Col, Tile>>
+} = {
+  currentSocket: null,
+  horizontal: false,
+  reconnectTimeout: null,
+  pingInterval: null,
+  backoff: 3000,
+  parcel: '0,0',
+  coordinates: { x: 0, y: 0 },
+  tiles: {}
+}
+
 const updateFunctions = {
   network: (() => undefined) as any,
   renderer: (params: { row: number; col: number; color: string }) => {
@@ -17,22 +39,35 @@ const updateFunctions = {
     dcl.attachEntityComponent(`E${row.toString(16)}_${col.toString(16)}`, 'engine.material', Colors[color])
   }
 }
-
-spawnModel('models/model.glb', { x: 8, y: 0, z: 8 }, 90)
 ;(async function() {
   const a = await dcl.callRpc('EnvironmentAPI', 'getBootstrapData')
   const parcel = `${a.data.basePosition.x},${a.data.basePosition.y}`
+  connectionState.parcel = parcel
+  connectionState.coordinates = a.data.basePosition
+  connectionState.horizontal = a.data.basePosition.x == 34
+  spawnModel('models/model.glb', { x: 8, y: 0, z: 8 }, connectionState.horizontal ? 90 : 0)
   setupDefaultMaterials()
   setupNewConnection(parcel)
 })()
 
 function setupNewConnection(parcel: string) {
+  if (connectionState.currentSocket) {
+    return
+  }
+  if (connectionState.reconnectTimeout) {
+    try {
+      clearTimeout(connectionState.reconnectTimeout)
+    } catch (e) {
+      // Skip
+    }
+  }
   try {
-    const socket = new WebSocket(URL)
+    const URL = connectionState.parcel === '0,0' ? 'ws://localhost:8765' : 'wss://tiles.interconnected.online/'
+    const socket = (connectionState.currentSocket = new WebSocket(URL))
     socket.onmessage = ((ev: MessageEvent) => {
       const msg = JSON.parse(ev.data)
       if (msg.type === 'snapshot') {
-        const data = JSON.parse(msg.data)
+        const data = msg.data
         if (!data.length || !data[0].length) {
           return
         }
@@ -44,14 +79,21 @@ function setupNewConnection(parcel: string) {
           }
         }
         setupGrid()
+        connectionState.backoff = 3000
       }
       if (msg.type === 'delta') {
-        const { row, col, color } = msg.data
-        logicColorChange(row, col, COLOR_TO_CHAR[color])
-        updateFunctions.renderer({ row, col, color: COLOR_TO_CHAR[color] })
+        // _.send(JSON.stringify({ type: 'delta', parcel: data.parcel, ...state[data.parcel].data[data.position] }))
+        if (msg.parcel === parcel) {
+          const { row, col, color } = msg
+          logicColorChange(row, col, COLOR_TO_CHAR[color])
+          updateFunctions.renderer({ row, col, color: COLOR_TO_CHAR[color] })
+        }
       }
     }) as any
     socket.onopen = (() => {
+      connectionState.pingInterval = setInterval(() => {
+        socket.send(JSON.stringify({ type: 'ping' }))
+      }, 30 * 1000)
       socket.send(JSON.stringify({ type: 'snapshot', parcel }))
       updateFunctions.network = (params: { row: number; col: number; color: string }) => {
         const { row, col, color } = params
@@ -68,19 +110,27 @@ function setupNewConnection(parcel: string) {
     socket.onclose = () => {
       updateFunctions.network = () => undefined
       // Try again!
-      setTimeout(setupNewConnection(parcel), 500)
+      connectionState.currentSocket = null
+      if (connectionState.pingInterval) {
+        clearInterval(connectionState.pingInterval)
+        connectionState.pingInterval = 0
+      }
+      if (!connectionState.reconnectTimeout) {
+        connectionState.reconnectTimeout = setTimeout(setupNewConnection(parcel), (connectionState.backoff *= 1.61))
+      }
     }
   } catch (e) {
     dcl.log(e)
 
     // Try again!
-    setTimeout(setupNewConnection(parcel), 500)
+    if (!connectionState.reconnectTimeout) {
+      connectionState.reconnectTimeout = setTimeout(setupNewConnection(parcel), (connectionState.backoff *= 1.61))
+    }
   }
 }
 
 function setupGrid() {
-  const tiles: Record<Row, Record<Col, Tile>> = {}
-
+  const tiles = connectionState.tiles
   const data = Object.keys(state.data)
   const newTiles = []
   for (let coordinate of data) {
@@ -90,14 +140,20 @@ function setupGrid() {
       tiles[row] = {}
     }
     if (!tiles[row][col]) {
+      if (!state.data[coordinate]) {
+        continue
+      }
       tiles[row][col] = createTile({
         row,
         col,
+        horizontal: connectionState.horizontal,
         color: state.data[coordinate].color,
         onClick: (_row: number, _col: number) => {
-          dcl.log('changing', _row, _col)
           try {
             const pos = `${_row},${_col}`
+            if (!state.data[pos]) {
+              return
+            }
             const newColor = nextColor(state.data[pos].color)
             const newData = logicColorChange(row, col, newColor)
             updateFunctions.renderer(newData)
@@ -109,6 +165,9 @@ function setupGrid() {
       })
       newTiles.push(tiles[row][col])
     } else {
+      if (!value || !value.color) {
+        continue
+      }
       updateFunctions.renderer({ row, col, color: COLOR_TO_CHAR[value.color] })
     }
   }

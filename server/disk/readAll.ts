@@ -45,8 +45,8 @@ export async function readAll(): Promise<WorldState> {
         )
       }
       result[scene] = {
-        cols: matrix.length,
-        rows: matrix[0].length,
+        cols: matrix[0].length,
+        rows: matrix.length,
         data: matrix
           .map((rowArray, row) =>
             rowArray

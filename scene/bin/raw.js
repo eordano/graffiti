@@ -259,10 +259,10 @@ define("scene/scene/state", ["require", "exports", "lib/gridSize"], function (re
     }
     exports.logicColorChange = logicColorChange;
     var NEXT = {
-        _: 'r',
-        r: 'g',
-        g: 'b',
-        b: '_'
+        _: 'b',
+        b: 'g',
+        g: 'r',
+        r: '_'
     };
     function nextColor(current) {
         return NEXT[current];
@@ -275,19 +275,22 @@ define("scene/scene/tiles", ["require", "exports", "scene/scene/materials", "sce
     var TransformClassId = 1;
     var BoxShapeId = 16;
     function createTile(params) {
-        var row = params.row, col = params.col, onClick = params.onClick;
+        var horizontal = params.horizontal, row = params.row, col = params.col, onClick = params.onClick;
         var id = row.toString(16) + '_' + col.toString(16);
         var componentId = 'C' + id;
         var entityId = 'E' + id;
         dcl.addEntity(entityId);
-        dcl.updateEntityComponent(entityId, 'engine.transform', TransformClassId, JSON.stringify({
-            // position: { x: col * 0.5 + 0.25, y: row * 0.5 + 1, z: 8 },
-            // rotation: { x: 1, y: 0, z: 0, w: 1 },
-            // scale: { x: 0.5, y: 0.1, z: 0.5 }
-            position: { z: col * 0.5 + 0.25, y: row * 0.5 + 1, x: 8 },
-            rotation: { x: 0, y: 0, z: 1, w: 1 },
-            scale: { x: 0.5, y: 0.1, z: 0.5 }
-        }));
+        dcl.updateEntityComponent(entityId, 'engine.transform', TransformClassId, JSON.stringify(horizontal
+            ? {
+                position: { z: col * 0.5 + 0.25, y: row * 0.5 + 1, x: 8 },
+                rotation: { x: 0, y: 0, z: 1, w: 1 },
+                scale: { x: 0.5, y: 0.1, z: 0.5 }
+            }
+            : {
+                position: { x: col * 0.5 + 0.25, y: row * 0.5 + 1, z: 8 },
+                rotation: { x: 1, y: 0, z: 0, w: 1 },
+                scale: { x: 0.5, y: 0.1, z: 0.5 }
+            }));
         dcl.componentCreated(componentId, 'engine.shape', BoxShapeId);
         dcl.componentUpdated(componentId, JSON.stringify({
             withCollisions: true,
@@ -316,7 +319,16 @@ define("scene/scene/game", ["require", "exports", "lib/colors", "lib/jslibs/pars
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     microlib_2.start();
-    var URL = 'ws://localhost:1337/';
+    var connectionState = {
+        currentSocket: null,
+        horizontal: false,
+        reconnectTimeout: null,
+        pingInterval: null,
+        backoff: 3000,
+        parcel: '0,0',
+        coordinates: { x: 0, y: 0 },
+        tiles: {}
+    };
     var updateFunctions = {
         network: (function () { return undefined; }),
         renderer: function (params) {
@@ -324,7 +336,6 @@ define("scene/scene/game", ["require", "exports", "lib/colors", "lib/jslibs/pars
             dcl.attachEntityComponent("E" + row.toString(16) + "_" + col.toString(16), 'engine.material', materials_2.Colors[color]);
         }
     };
-    microlib_2.spawnModel('models/model.glb', { x: 8, y: 0, z: 8 }, 90);
     (function () {
         return __awaiter(this, void 0, void 0, function () {
             var a, parcel;
@@ -334,6 +345,10 @@ define("scene/scene/game", ["require", "exports", "lib/colors", "lib/jslibs/pars
                     case 1:
                         a = _a.sent();
                         parcel = a.data.basePosition.x + "," + a.data.basePosition.y;
+                        connectionState.parcel = parcel;
+                        connectionState.coordinates = a.data.basePosition;
+                        connectionState.horizontal = a.data.basePosition.x == 34;
+                        microlib_2.spawnModel('models/model.glb', { x: 8, y: 0, z: 8 }, connectionState.horizontal ? 90 : 0);
                         materials_2.setupDefaultMaterials();
                         setupNewConnection(parcel);
                         return [2 /*return*/];
@@ -342,12 +357,24 @@ define("scene/scene/game", ["require", "exports", "lib/colors", "lib/jslibs/pars
         });
     })();
     function setupNewConnection(parcel) {
+        if (connectionState.currentSocket) {
+            return;
+        }
+        if (connectionState.reconnectTimeout) {
+            try {
+                clearTimeout(connectionState.reconnectTimeout);
+            }
+            catch (e) {
+                // Skip
+            }
+        }
         try {
-            var socket_1 = new WebSocket(URL);
+            var URL = connectionState.parcel === '0,0' ? 'ws://localhost:8765' : 'wss://tiles.interconnected.online/';
+            var socket_1 = (connectionState.currentSocket = new WebSocket(URL));
             socket_1.onmessage = (function (ev) {
                 var msg = JSON.parse(ev.data);
                 if (msg.type === 'snapshot') {
-                    var data = JSON.parse(msg.data);
+                    var data = msg.data;
                     if (!data.length || !data[0].length) {
                         return;
                     }
@@ -359,14 +386,21 @@ define("scene/scene/game", ["require", "exports", "lib/colors", "lib/jslibs/pars
                         }
                     }
                     setupGrid();
+                    connectionState.backoff = 3000;
                 }
                 if (msg.type === 'delta') {
-                    var _a = msg.data, row = _a.row, col = _a.col, color = _a.color;
-                    state_2.logicColorChange(row, col, colors_1.COLOR_TO_CHAR[color]);
-                    updateFunctions.renderer({ row: row, col: col, color: colors_1.COLOR_TO_CHAR[color] });
+                    // _.send(JSON.stringify({ type: 'delta', parcel: data.parcel, ...state[data.parcel].data[data.position] }))
+                    if (msg.parcel === parcel) {
+                        var row = msg.row, col = msg.col, color = msg.color;
+                        state_2.logicColorChange(row, col, colors_1.COLOR_TO_CHAR[color]);
+                        updateFunctions.renderer({ row: row, col: col, color: colors_1.COLOR_TO_CHAR[color] });
+                    }
                 }
             });
             socket_1.onopen = (function () {
+                connectionState.pingInterval = setInterval(function () {
+                    socket_1.send(JSON.stringify({ type: 'ping' }));
+                }, 30 * 1000);
                 socket_1.send(JSON.stringify({ type: 'snapshot', parcel: parcel }));
                 updateFunctions.network = function (params) {
                     var row = params.row, col = params.col, color = params.color;
@@ -381,18 +415,27 @@ define("scene/scene/game", ["require", "exports", "lib/colors", "lib/jslibs/pars
             socket_1.onclose = function () {
                 updateFunctions.network = function () { return undefined; };
                 // Try again!
-                setTimeout(setupNewConnection(parcel), 500);
+                connectionState.currentSocket = null;
+                if (connectionState.pingInterval) {
+                    clearInterval(connectionState.pingInterval);
+                    connectionState.pingInterval = 0;
+                }
+                if (!connectionState.reconnectTimeout) {
+                    connectionState.reconnectTimeout = setTimeout(setupNewConnection(parcel), (connectionState.backoff *= 1.61));
+                }
             };
         }
         catch (e) {
             dcl.log(e);
             // Try again!
-            setTimeout(setupNewConnection(parcel), 500);
+            if (!connectionState.reconnectTimeout) {
+                connectionState.reconnectTimeout = setTimeout(setupNewConnection(parcel), (connectionState.backoff *= 1.61));
+            }
         }
     }
     function setupGrid() {
         var e_3, _a, e_4, _b;
-        var tiles = {};
+        var tiles = connectionState.tiles;
         var data = Object.keys(state_2.state.data);
         var newTiles = [];
         var _loop_1 = function (coordinate) {
@@ -402,14 +445,20 @@ define("scene/scene/game", ["require", "exports", "lib/colors", "lib/jslibs/pars
                 tiles[row] = {};
             }
             if (!tiles[row][col]) {
+                if (!state_2.state.data[coordinate]) {
+                    return "continue";
+                }
                 tiles[row][col] = tiles_1.createTile({
                     row: row,
                     col: col,
+                    horizontal: connectionState.horizontal,
                     color: state_2.state.data[coordinate].color,
                     onClick: function (_row, _col) {
-                        dcl.log('changing', _row, _col);
                         try {
                             var pos = _row + "," + _col;
+                            if (!state_2.state.data[pos]) {
+                                return;
+                            }
                             var newColor = state_2.nextColor(state_2.state.data[pos].color);
                             var newData = state_2.logicColorChange(row, col, newColor);
                             updateFunctions.renderer(newData);
@@ -423,6 +472,9 @@ define("scene/scene/game", ["require", "exports", "lib/colors", "lib/jslibs/pars
                 newTiles.push(tiles[row][col]);
             }
             else {
+                if (!value || !value.color) {
+                    return "continue";
+                }
                 updateFunctions.renderer({ row: row, col: col, color: colors_1.COLOR_TO_CHAR[value.color] });
             }
         };

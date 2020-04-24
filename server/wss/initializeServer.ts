@@ -14,9 +14,24 @@ export function initializeServer(
 ): {
   start: Function
 } {
+  const currentUsers: {
+    lastIndex: number
+  } = {
+    lastIndex: 0
+  }
   const server = http.createServer(app)
+  const channel: Record<string, Record<string, WebSocket>> = {}
   const wss = new WebSocket.Server({ server })
   wss.on('connection', (ws: WebSocket) => {
+    const id: string = ''+(currentUsers.lastIndex++);
+    const interval = setInterval(() => {
+      try {
+        ws.send(JSON.stringify({ typ: 'ping' }))
+      } catch(e) {
+        // skip
+        clearInterval(interval)
+      }
+    }, 30 * 1000)
     ws.on('message', (message: string) => {
       try {
         console.log(`Received data: ${message}`)
@@ -27,7 +42,11 @@ export function initializeServer(
         if (data.type === 'color') {
           processColorMessage(data)
         }
+        if (data.type === 'register') {
+          processRegistration(data.parcel)
+        }
         if (data.type === 'snapshot') {
+          processRegistration(data.parcel)
           processSnapshotRequest(data)
         }
       } catch (e) {
@@ -35,6 +54,12 @@ export function initializeServer(
         ws.close(1, e.message)
       }
     })
+    function processRegistration(parcel: string) {
+      if (!channel[parcel]) {
+        channel[parcel] = {}
+      }
+      channel[parcel][id] = ws
+    }
     function processSnapshotRequest(data: any) {
       const parcel = data.parcel
       if (typeof data.parcel !== 'string' || !data.parcel.match(COORDINATE_REGEX)) {
@@ -44,7 +69,7 @@ export function initializeServer(
         console.log(`No data for ${parcel}`)
         state[data.parcel] = { rows: DEFAULT_ROWS, cols: DEFAULT_COLS, data: {} }
       }
-      ws.send(JSON.stringify({ type: 'snapshot', data: JSON.stringify(serializeGrid(state[parcel])) }))
+      ws.send(JSON.stringify({ type: 'snapshot', data: serializeGrid(state[parcel]) }))
     }
 
     function processColorMessage(data: any) {
@@ -66,13 +91,19 @@ export function initializeServer(
         row,
         color: data.color
       }
-      wss.clients.forEach(_ => {
-        _.send(JSON.stringify({ type: 'delta', data: state[data.parcel].data[data.position] }))
+      Object.keys(channel[data.parcel]).forEach(_ => {
+        const client = channel[data.parcel][_]
+        const value = JSON.stringify({ type: 'delta', parcel: data.parcel, ...state[data.parcel].data[data.position] })
+        try {
+          client.send(value)
+        } catch (e) {
+          delete channel[data.parcel][_]
+        }
       })
     }
   })
 
-  const port = parseEnvNumberOrDefault(process.env.PORT, 1337)
+  const port = parseEnvNumberOrDefault(process.env.PORT, 8765)
   return {
     start: () => {
       return new Promise((resolve, reject) => {

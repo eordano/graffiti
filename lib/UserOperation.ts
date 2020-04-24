@@ -15,5 +15,5 @@ export type SnapshotOperation = {
   color: keyof typeof COLOR_TO_CHAR
 }
 
-export const validOperations = ['color', 'snapshot']
+export const validOperations = ['color', 'snapshot', 'ping', 'register']
 export const validColors = Object.keys(COLOR_TO_CHAR)

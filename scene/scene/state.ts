@@ -15,10 +15,10 @@ export function logicColorChange(row: number, col: number, newColor: string) {
   return state.data[pos]
 }
 const NEXT = {
-  _: 'r',
-  r: 'g',
-  g: 'b',
-  b: '_'
+  _: 'b',
+  b: 'g',
+  g: 'r',
+  r: '_'
 }
 export function nextColor(current: string): string {
   return NEXT[current]
