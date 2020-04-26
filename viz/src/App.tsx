@@ -40,7 +40,6 @@ function App() {
   const [currentConnection, setCurrentConnection] = useState(
     null as WebSocket | null
   );
-  const [newConnection, setNewConnection] = useState(null as WebSocket | null);
   useEffect(() => {
     if (currentConnection !== null) {
       return;
@@ -59,7 +58,6 @@ function App() {
           }
         }
         setGrid(res);
-        setNewConnection(io);
         setCurrentCoords(coord);
         setCurrentConnection(io);
       }
