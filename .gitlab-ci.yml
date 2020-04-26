@@ -7,9 +7,9 @@ cache:
     - scene/node_modules/
 
 before_script:
-  - cd viz && yarn install
-  - cd server && yarn install
-  - cd scene && yarn install
+  - cd viz && yarn install && cd..
+  - cd server && yarn install && cd..
+  - cd scene && yarn install && cd..
 
 pages:
   stage: deploy
