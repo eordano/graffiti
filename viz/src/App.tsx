@@ -22,8 +22,9 @@ export const HEART = [
   [0, 0, 0, "r", 0, 0, 0],
 ];
 
+const where = new URLSearchParams(window.location.search)
 function App() {
-  const [coord, setCoords] = useState("34,-122");
+  const [coord, setCoords] = useState(where.get('coord') || "34,-122");
   const setCoordsCb = useCallback((ev: any) => {
     setCoords(ev.target.value);
   }, []);
@@ -58,6 +59,7 @@ function App() {
           }
         }
         setGrid(res);
+        setCoords(coord);
         setCurrentCoords(coord);
         setCurrentConnection(io);
       }
